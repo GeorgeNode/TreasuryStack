@@ -199,3 +199,123 @@
         )
     )
 )
+
+;; Proposal creation and voting
+(define-public (create-proposal
+        (proposal-type (string-utf8 32))
+        (recipient principal)
+        (amount uint)
+        (description (string-utf8 256))
+        (expiry-blocks uint)
+    )
+    (let ((proposal-id (var-get proposal-counter)))
+        (begin
+            (asserts! (is-authorized-member tx-sender) err-unauthorized)
+            (asserts! (not (var-get vault-paused)) err-unauthorized)
+            (asserts! (> amount u0) err-invalid-amount)
+            (asserts! (> expiry-blocks u0) err-invalid-amount)
+            (map-set proposals proposal-id {
+                proposer: tx-sender,
+                proposal-type: proposal-type,
+                recipient: recipient,
+                amount: amount,
+                description: description,
+                votes-for: u0,
+                votes-against: u0,
+                executed: false,
+                created-at: stacks-block-height,
+                expiry: (+ stacks-block-height expiry-blocks),
+                threshold-required: (calculate-votes-needed),
+            })
+            (var-set proposal-counter (+ proposal-id u1))
+            (ok proposal-id)
+        )
+    )
+)
+
+(define-public (vote-on-proposal
+        (proposal-id uint)
+        (approve bool)
+    )
+    (let (
+            (proposal (unwrap! (map-get? proposals proposal-id) err-proposal-not-found))
+            (existing-vote (map-get? proposal-votes {
+                proposal-id: proposal-id,
+                voter: tx-sender,
+            }))
+        )
+        (begin
+            (asserts! (is-authorized-member tx-sender) err-unauthorized)
+            (asserts! (not (var-get vault-paused)) err-unauthorized)
+            (asserts! (is-none existing-vote) err-already-voted)
+            (asserts! (< stacks-block-height (get expiry proposal))
+                err-proposal-expired
+            )
+            (asserts! (not (get executed proposal)) err-execution-failed)
+            ;; Record vote
+            (map-set proposal-votes {
+                proposal-id: proposal-id,
+                voter: tx-sender,
+            } {
+                vote: approve,
+                voted-at: stacks-block-height,
+            })
+            ;; Update proposal vote counts
+            (map-set proposals proposal-id
+                (merge proposal {
+                    votes-for: (if approve
+                        (+ (get votes-for proposal) u1)
+                        (get votes-for proposal)
+                    ),
+                    votes-against: (if (not approve)
+                        (+ (get votes-against proposal) u1)
+                        (get votes-against proposal)
+                    ),
+                })
+            )
+            ;; Update member activity
+            (let ((member-info (unwrap-panic (map-get? organization-members tx-sender))))
+                (map-set organization-members tx-sender
+                    (merge member-info { last-activity: stacks-block-height })
+                )
+            )
+            (ok true)
+        )
+    )
+)
+
+;; Administrative functions
+(define-public (update-signature-threshold (new-threshold uint))
+    (begin
+        (asserts! (has-role tx-sender ROLE-ADMIN) err-unauthorized)
+        (asserts! (not (var-get vault-paused)) err-unauthorized)
+        (asserts!
+            (and (> new-threshold u0) (<= new-threshold (var-get total-members)))
+            err-invalid-threshold
+        )
+        (var-set signature-threshold new-threshold)
+        (ok true)
+    )
+)
+
+(define-public (toggle-vault-pause)
+    (begin
+        (asserts! (has-role tx-sender ROLE-ADMIN) err-unauthorized)
+        (var-set vault-paused (not (var-get vault-paused)))
+        (ok true)
+    )
+)
+
+(define-public (deposit-funds)
+    (begin
+        (asserts! (not (var-get vault-paused)) err-unauthorized)
+        (let ((deposit-amount (stx-get-balance tx-sender)))
+            (asserts! (> deposit-amount u0) err-invalid-amount)
+            (try! (stx-transfer? deposit-amount tx-sender (as-contract tx-sender)))
+            (var-set treasury-balance
+                (+ (var-get treasury-balance) deposit-amount)
+            )
+            (ok deposit-amount)
+        )
+    )
+)
