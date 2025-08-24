@@ -603,7 +603,18 @@
         (amount uint)
     )
     (let (
-            (limits (unwrap-panic (map-get? spending-limits member)))
+            (limits (default-to {
+                daily-limit: u999999999999,
+                monthly-limit: u999999999999,
+                total-limit: u999999999999,
+                daily-spent: u0,
+                monthly-spent: u0,
+                total-spent: u0,
+                last-reset-day: u0,
+                last-reset-month: u0,
+            }
+                (map-get? spending-limits member)
+            ))
             (current-day (/ stacks-block-height u144))
             (current-month (/ stacks-block-height u4320))
             (reset-daily (> current-day (get last-reset-day limits)))
