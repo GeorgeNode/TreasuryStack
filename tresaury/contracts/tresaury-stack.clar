@@ -14,12 +14,10 @@
 (define-constant err-execution-failed (err u109))
 
 ;; Role definitions
-(define-constant ROLE-ADMIN u1)
+(define-constant ROLE-VIEWER u1)
 (define-constant ROLE-SIGNER u2)
-(define-constant ROLE-VIEWER u3)
-
-;; Data variables
-(define-data-var signature-threshold uint u3)
+(define-constant ROLE-ADMIN u3) ;; Data variables
+(define-data-var signature-threshold uint u1) ;; Start with 1 since deployer is the only member initially
 (define-data-var total-members uint u0)
 (define-data-var proposal-counter uint u0)
 (define-data-var treasury-balance uint u0)
@@ -116,6 +114,18 @@
     uint
     principal
 )
+
+;; Initialize the deployer as the first admin
+(map-set organization-members contract-owner {
+    role: ROLE-ADMIN,
+    added-at: u0,
+    last-activity: u0,
+    active: true,
+})
+
+;; Add deployer to member list and increment member count
+(map-set member-list u0 contract-owner)
+(var-set total-members u1)
 
 ;; Read-only functions
 (define-read-only (get-member-info (member principal))
