@@ -366,4 +366,40 @@ describe("TreasuryStack Contract Tests", () => {
     });
   });
 
+  describe("Treasury Balance Management", () => {
+    it("should allow users to deposit funds", () => {
+      // Deposit funds
+      const { result } = simnet.callPublicFn(
+        contractName,
+        "deposit-funds",
+        [],
+        wallet1
+      );
+      expect(result).toBeOk(Cl.uint(100000000000000)); // The function returns the deposited amount
+
+      // Check treasury balance increased
+      const { result: balance } = simnet.callReadOnlyFn(
+        contractName,
+        "get-treasury-balance",
+        [],
+        deployer
+      );
+      expect(balance).toBeUint(100000000000000); // Should match the deposited amount
+    });
+
+    it("should reject deposits when vault is paused", () => {
+      // Pause vault
+      simnet.callPublicFn(contractName, "toggle-vault-pause", [], deployer);
+
+      // Try to deposit
+      const { result } = simnet.callPublicFn(
+        contractName,
+        "deposit-funds",
+        [],
+        wallet1
+      );
+      expect(result).toBeErr(Cl.uint(100)); // err-unauthorized
+    });
+  });
+
 });
