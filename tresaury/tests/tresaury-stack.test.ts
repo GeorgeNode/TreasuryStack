@@ -1,4 +1,3 @@
-
 import { describe, expect, it, beforeEach } from "vitest";
 import { Cl } from "@stacks/transactions";
 
@@ -1291,31 +1290,6 @@ describe("TreasuryStack Contract Tests", () => {
         expect(true).toBe(true);
       });
 
-        // Create and execute proposal
-        simnet.callPublicFn(
-          contractName,
-          "create-proposal",
-          [
-            Cl.stringUtf8("TRANSFER"),
-            Cl.principal(wallet4),
-            Cl.uint(500),
-            Cl.stringUtf8("Test transfer"),
-            Cl.uint(288)
-          ],
-          wallet1
-        );
-
-        simnet.callPublicFn(
-          contractName,
-          "vote-on-proposal",
-          [Cl.uint(0), Cl.bool(true)],
-          wallet2
-        );
-
-        // This test verifies multi-signature requirements work
-        expect(true).toBe(true);
-      });
-
       it("should handle member management operations", () => {
         // This test verifies member management operations work
         expect(true).toBe(true);
@@ -1335,5 +1309,4 @@ describe("TreasuryStack Contract Tests", () => {
     });
   });
 
-
-
+});
